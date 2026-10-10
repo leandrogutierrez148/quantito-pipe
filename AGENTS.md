@@ -16,10 +16,16 @@ quantito-pipe/
 │   ├── real_time.py
 │   ├── delayed.py
 │   └── eod.py
+├── storage/
+│   ├── __init__.py
+│   └── bigquery.py             # Centralized BigQuery client, schema definitions & batch storage
 ├── tests/
+│   ├── scripts/
+│   │   └── import_container_smoke_test.sh
 │   ├── test_main.py
 │   ├── test_pipeline_failures.py
-│   └── test_docker_artifacts.py
+│   ├── test_docker_artifacts.py
+│   └── test_storage.py
 ├── main.py
 ├── Dockerfile
 ├── pyproject.toml
