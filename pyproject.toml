@@ -42,4 +42,4 @@ ignore = [
 
 [tool.ruff.lint.isort]
 combine-as-imports = true
-known-first-party = ["pipelines"]
+known-first-party = ["pipelines", "storage"]

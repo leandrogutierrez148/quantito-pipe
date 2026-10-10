@@ -33,6 +33,7 @@ class DockerArtifactTests(unittest.TestCase):
         self.assertIn("COPY pyproject.toml README.md ./", dockerfile)
         self.assertIn("COPY main.py ./main.py", dockerfile)
         self.assertIn("COPY pipelines ./pipelines", dockerfile)
+        self.assertIn("COPY storage ./storage", dockerfile)
         self.assertNotIn("COPY utils", dockerfile)
         self.assertNotIn("eodhd-api.httpbook", dockerfile)
 
@@ -45,6 +46,7 @@ class DockerArtifactTests(unittest.TestCase):
         self.assertFalse(dockerignore_includes(".git/config", rules))
         self.assertTrue(dockerignore_includes("main.py", rules))
         self.assertTrue(dockerignore_includes("pipelines/real_time.py", rules))
+        self.assertTrue(dockerignore_includes("storage/bigquery.py", rules))
 
     def test_import_container_smoke_script_exists(self):
         script_path = REPO_ROOT / "tests" / "scripts" / "import_container_smoke_test.sh"
