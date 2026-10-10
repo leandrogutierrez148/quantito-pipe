@@ -1,9 +1,19 @@
+# OS metadata
+.DS_Store
+
+# Environments
+.env
+.venv
+venv/
+env/
+
+# Python cache & packaging
 __pycache__/
 *.py[cod]
-*$py.class
-.venv/
-venv/
-.env
-.DS_Store
+*.class
+*.egg-info/
+*.egg
+build/
+dist/
 .ruff_cache/
 .pytest_cache/
