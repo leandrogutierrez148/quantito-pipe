@@ -47,7 +47,7 @@ class DockerArtifactTests(unittest.TestCase):
         self.assertTrue(dockerignore_includes("pipelines/real_time.py", rules))
 
     def test_import_container_smoke_script_exists(self):
-        script_path = REPO_ROOT / "scripts" / "import_container_smoke_test.sh"
+        script_path = REPO_ROOT / "tests" / "scripts" / "import_container_smoke_test.sh"
         self.assertTrue(script_path.exists())
         script_contents = script_path.read_text()
         self.assertIn("docker build -t", script_contents)
@@ -71,7 +71,11 @@ class DockerArtifactTests(unittest.TestCase):
             self.skipTest("docker daemon is not available")
 
         subprocess.run(
-            ["bash", "scripts/import_container_smoke_test.sh", "quantito-pipe-import-smoke-test"],
+            [
+                "bash",
+                "tests/scripts/import_container_smoke_test.sh",
+                "quantito-pipe-import-smoke-test",
+            ],
             cwd=REPO_ROOT,
             check=True,
         )
