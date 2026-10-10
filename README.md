@@ -1,61 +1,114 @@
 # Quantito Pipe (`quantito-pipe`)
 
-`quantito-pipe` is the dedicated data ingestion and collection service for the Quantito financial platform. It fetches market quotes (real-time, delayed, and End-of-Day historical) from financial APIs (EODHD) and persists them into Google Cloud BigQuery.
+**Quantito Pipe** is the dedicated market data ingestion and collection service of the **Quantito Financial Platform**. Built with Python 3.12+, it connects to financial market data APIs (EODHD) to extract, standardize, and load real-time, delayed, and End-of-Day (EOD) historical quotes into Google Cloud BigQuery.
 
 ---
 
-## Features
+## 1. Role in the Quantito Ecosystem
 
-- **Real-Time Quotes Pipeline**: Ingests real-time market data quotes.
-- **US Delayed Quotes Pipeline**: Fetches 15-minute delayed US market quotes.
-- **EOD Historical Data Pipeline**: Downloads end-of-day candles/historical prices.
-- **BigQuery Persistence**: Automatically manages dataset/table creation and batch loading into BigQuery.
-- **Robust CLI Orchestrator**: Configurable pipeline execution via CLI flags or environment variables.
+The **Quantito Platform** is split into three decoupled, specialized services:
+
+```mermaid
+graph TD
+    subgraph Ingestion ["1. Data Ingestion (quantito-pipe)"]
+        EODHD[EODHD Financial API] -->|Extract Quotes| Pipe["quantito-pipe (Ingestion Service)"]
+        Pipe -->|Load Batches| BQ[(BigQuery / Data Lake)]
+    end
+
+    subgraph StrategyEngine ["2. Quantitative Engine (quantito)"]
+        API["quantito (FastAPI Service)"]
+        Strategies["StrategyRegistry: fifty_day_avg, price_momentum, ..."]
+        API --- Strategies
+        BQ -.->|Market Quotes| API
+    end
+
+    subgraph Orchestration ["3. Execution Engine (quantito-engine)"]
+        Client[Scheduler / CLI / Webhook] -->|POST /execute/:id| Engine["quantito-engine (Go Orchestrator)"]
+        Engine <--> MySQL[(MySQL: experiments, variants, signals)]
+        Engine -->|POST /api/v1/strategies/:name/evaluate| API
+        Engine -->|Dispatch Signals| Sinks[SignalDispatcher: Console, Brokers, Ledgers]
+    end
+```
+
+| Service | Technology | Role |
+| :--- | :--- | :--- |
+| **`quantito-pipe`** *(this repo)* | Python / Cloud Run Job | Ingests market quotes (EOD, Delayed, Real-time) from EODHD into BigQuery. |
+| **`quantito`** | Python 3.12 / FastAPI | Pure quantitative strategy evaluation service (`fifty_day_avg`, `price_momentum`). |
+| **`quantito-engine`** | Go 1.22+ / Echo / MySQL | Experiment orchestrator, parallel contraposition, concurrency locks, signal ledger, and dispatcher. |
 
 ---
 
-## Configuration
+## 2. Ingestion Pipelines
 
-| Variable | Description | Default |
-|---|---|---|
-| `EODHD_API_TOKEN` | EODHD API authentication token | *(Required)* |
-| `BIGQUERY_DATASET` | BigQuery dataset to store data | *(Optional)* |
-| `BIGQUERY_LOCATION` | Region for BigQuery dataset creation | `US` |
-| `SYMBOLS` | Comma-separated list of ticker symbols | `AAPL.US,GOOGL.US` |
-| `PIPELINES` | Comma-separated pipelines to run (`real_time`, `delayed`, `eod`) | `real_time,delayed,eod` |
+`quantito-pipe` encapsulates three independent data pipelines configured to run as scheduled jobs (e.g. Cloud Run Jobs, Cron, Airflow):
+
+1. **Real-Time Quotes (`real_time`)**:
+   - Queries live price quotes for active ticker universes.
+   - Ingests into BigQuery table `quotes_real_time`.
+2. **US Delayed Quotes (`delayed`)**:
+   - Fetches 15-minute delayed quotes from US market feeds.
+   - Ingests into BigQuery table `quotes_delayed`.
+3. **End-of-Day Historical Quotes (`eod`)**:
+   - Downloads daily closing candles, volume, and moving average benchmarks.
+   - Ingests into BigQuery table `quotes_eod`.
 
 ---
 
-## Local Development
+## 3. Storage Architecture
+
+Market data is persisted in Google Cloud BigQuery:
+- Automatic dataset and table schema provisioning upon execution.
+- High-throughput batch streaming insertions using `google-cloud-bigquery`.
+- Schema fields: `symbol`, `timestamp`, `close`, `high`, `low`, `open`, `volume`, and pipeline-specific indicator fields (such as `fifty_day_average_price`).
+
+---
+
+## 4. Configuration
+
+Configured via environment variables or CLI flags:
+
+| Variable | CLI Flag | Description | Default |
+| :--- | :--- | :--- | :--- |
+| `EODHD_API_TOKEN` | `--token` | EODHD API authentication token | *(Required)* |
+| `BIGQUERY_DATASET` | `--dataset` | BigQuery target dataset name | `market_data` |
+| `BIGQUERY_LOCATION`| `--location`| GCP region for BigQuery dataset | `US` |
+| `SYMBOLS` | `--symbols` | Comma-separated ticker symbols | `AAPL.US,GOOGL.US` |
+| `PIPELINES` | `--pipelines`| Pipelines to execute (`real_time`, `delayed`, `eod`) | `real_time,delayed,eod` |
+
+---
+
+## 5. Local Development & Testing
 
 ```bash
-# Set up virtual environment
+# 1. Create and activate virtual environment
 python3 -m venv .venv
 source .venv/bin/activate
+
+# 2. Install package and development tools
 pip install -e ".[dev]"
 
-# Run linter and formatting
+# 3. Linting and formatting checks
 ruff check . && ruff format --check .
 
-# Run test suite
+# 4. Run unit tests
 python -m unittest discover tests
 
-# Run pipelines
-export EODHD_API_TOKEN="your_token"
-python main.py --pipelines real_time,delayed,eod
+# 5. Execute pipelines locally
+export EODHD_API_TOKEN="your_eodhd_token"
+python main.py --symbols AAPL.US,MSFT.US --pipelines real_time,delayed
 ```
 
 ---
 
-## Docker Execution
+## 6. Docker Execution
 
 ```bash
 # Build Docker image
 docker build -t quantito-pipe:latest .
 
-# Run container
+# Run container as a scheduled job
 docker run --rm \
-  -e EODHD_API_TOKEN="your_token" \
+  -e EODHD_API_TOKEN="your_eodhd_token" \
   -e BIGQUERY_DATASET="market_data" \
   -e PIPELINES="real_time,delayed,eod" \
   quantito-pipe:latest
