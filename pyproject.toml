@@ -43,3 +43,6 @@ ignore = [
 [tool.ruff.lint.isort]
 combine-as-imports = true
 known-first-party = ["pipelines", "storage"]
+
+[tool.setuptools.packages.find]
+include = ["pipelines*", "storage*"]
